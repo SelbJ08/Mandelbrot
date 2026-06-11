@@ -1,12 +1,13 @@
 """
-Modul zur Visualisierung der Mandelbrot-Menge.
+Modul zur Visualisierung der Mandelbrot-Menge mit moderner UI.
 """
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.patches import Rectangle
 import numpy as np
-from matplotlib.widgets import Button, TextBox
+from matplotlib.widgets import Button, TextBox, Slider
 from mandelbrot_calculator import MandelbrotCalculator
 from database import MandelbrotDatabase
 
@@ -31,9 +32,9 @@ def create_rainbow_colormap():
 
 
 class MandelbrotVisualizer:
-    """Interaktive Visualisierung der Mandelbrot-Menge."""
+    """Interaktive Visualisierung der Mandelbrot-Menge mit moderner UI."""
     
-    def __init__(self, width=1000, height=750, max_iterations=256):
+    def __init__(self, width=1200, height=800, max_iterations=256):
         """Initialisiert den Visualizer."""
         self.width = width
         self.height = height
@@ -49,58 +50,110 @@ class MandelbrotVisualizer:
         self.mandelbrot_set = None
         self.current_set_id = None
         
-        # Erstelle die Figur und Achsen
-        self.fig, self.ax = plt.subplots(figsize=(12, 9))
+        # Moderne Farbpalette
+        self.bg_color = '#0f0f0f'
+        self.panel_color = '#1a1a1a'
+        self.accent_color = '#00d4ff'
+        self.button_color = '#0088cc'
+        self.button_hover = '#00b3ff'
+        self.text_color = '#ffffff'
+        
+        # Erstelle die Figur mit dunklem Theme
+        self.fig = plt.figure(figsize=(14, 10), facecolor=self.bg_color)
+        self.fig.patch.set_facecolor(self.bg_color)
+        
+        # Layout mit GridSpec für bessere Kontrolle
+        gs = self.fig.add_gridspec(4, 3, left=0.05, right=0.95, top=0.95, bottom=0.05,
+                                    hspace=0.4, wspace=0.3)
+        
+        self.ax_mandelbrot = self.fig.add_subplot(gs[0:3, 0:2])
+        self.ax_mandelbrot.set_facecolor(self.panel_color)
+        
         self.im = None
         
         # Erstelle die Rainbow-Colormap
         self.rainbow_cmap = create_rainbow_colormap()
         
-        self.setup_ui()
+        self.setup_ui(gs)
     
-    def setup_ui(self):
-        """Erstellt die Benutzeroberfläche mit Buttons und Input-Feldern."""
-        plt.subplots_adjust(bottom=0.35)
+    def setup_ui(self, gs):
+        """Erstellt die moderne Benutzeroberfläche."""
         
-        # Buttons für vordefinierte Zoom-Level
-        ax_full = plt.axes([0.2, 0.25, 0.1, 0.04])
-        btn_full = Button(ax_full, 'Vollständig')
-        btn_full.on_clicked(lambda event: self.zoom_to_level('full'))
+        # === ZOOM-BUTTONS (Oben) ===
+        zoom_buttons = [
+            ('Vollständig', 'full', 0.05, 0.88),
+            ('Seahorse 🐴', 'seahorse_valley', 0.25, 0.88),
+            ('Spirale 🌀', 'spiral', 0.45, 0.88),
+            ('Elephant 🐘', 'elephant_valley', 0.65, 0.88),
+        ]
         
-        ax_seahorse = plt.axes([0.35, 0.25, 0.1, 0.04])
-        btn_seahorse = Button(ax_seahorse, 'Seahorse')
-        btn_seahorse.on_clicked(lambda event: self.zoom_to_level('seahorse_valley'))
+        for label, level, x, y in zoom_buttons:
+            ax_btn = plt.axes([x, y, 0.17, 0.06])
+            ax_btn.set_facecolor(self.panel_color)
+            btn = Button(ax_btn, label, color=self.button_color, hovercolor=self.button_hover)
+            btn.label.set_color(self.text_color)
+            btn.label.set_fontsize(10)
+            btn.label.set_weight('bold')
+            btn.on_clicked(lambda event, l=level: self.zoom_to_level(l))
         
-        ax_spiral = plt.axes([0.5, 0.25, 0.1, 0.04])
-        btn_spiral = Button(ax_spiral, 'Spirale')
-        btn_spiral.on_clicked(lambda event: self.zoom_to_level('spiral'))
+        # === INPUT-FELDER (Links Seite) ===
+        input_y_start = 0.75
+        input_spacing = 0.11
         
-        ax_elephant = plt.axes([0.65, 0.25, 0.1, 0.04])
-        btn_elephant = Button(ax_elephant, 'Elephant')
-        btn_elephant.on_clicked(lambda event: self.zoom_to_level('elephant_valley'))
+        # Reelle Achse Label
+        self.fig.text(0.05, input_y_start + 0.02, '📍 Reelle Achse', 
+                     color=self.accent_color, fontsize=11, weight='bold')
         
-        # Input-Felder für benutzerdefinierte Bereiche
-        ax_min_real = plt.axes([0.2, 0.18, 0.15, 0.04])
-        self.textbox_min_real = TextBox(ax_min_real, 'Min Real:', initial=str(self.min_real))
+        ax_min_real = plt.axes([0.05, input_y_start - 0.03, 0.17, 0.04])
+        ax_min_real.set_facecolor(self.panel_color)
+        self.textbox_min_real = TextBox(ax_min_real, 'Min:', initial=str(self.min_real),
+                                       color_bg=self.panel_color, color_fg=self.text_color)
+        self.textbox_min_real.label.set_color(self.accent_color)
         
-        ax_max_real = plt.axes([0.2, 0.12, 0.15, 0.04])
-        self.textbox_max_real = TextBox(ax_max_real, 'Max Real:', initial=str(self.max_real))
+        ax_max_real = plt.axes([0.05, input_y_start - 0.08, 0.17, 0.04])
+        ax_max_real.set_facecolor(self.panel_color)
+        self.textbox_max_real = TextBox(ax_max_real, 'Max:', initial=str(self.max_real),
+                                       color_bg=self.panel_color, color_fg=self.text_color)
+        self.textbox_max_real.label.set_color(self.accent_color)
         
-        ax_min_imag = plt.axes([0.55, 0.18, 0.15, 0.04])
-        self.textbox_min_imag = TextBox(ax_min_imag, 'Min Imag:', initial=str(self.min_imag))
+        # Imaginäre Achse Label
+        self.fig.text(0.05, input_y_start - 0.15, '📍 Imaginäre Achse', 
+                     color=self.accent_color, fontsize=11, weight='bold')
         
-        ax_max_imag = plt.axes([0.55, 0.12, 0.15, 0.04])
-        self.textbox_max_imag = TextBox(ax_max_imag, 'Max Imag:', initial=str(self.max_imag))
+        ax_min_imag = plt.axes([0.05, input_y_start - 0.2, 0.17, 0.04])
+        ax_min_imag.set_facecolor(self.panel_color)
+        self.textbox_min_imag = TextBox(ax_min_imag, 'Min:', initial=str(self.min_imag),
+                                       color_bg=self.panel_color, color_fg=self.text_color)
+        self.textbox_min_imag.label.set_color(self.accent_color)
         
-        # Button zum Berechnen
-        ax_compute = plt.axes([0.4, 0.03, 0.15, 0.06])
-        btn_compute = Button(ax_compute, 'Berechnen\nund Speichern')
+        ax_max_imag = plt.axes([0.05, input_y_start - 0.25, 0.17, 0.04])
+        ax_max_imag.set_facecolor(self.panel_color)
+        self.textbox_max_imag = TextBox(ax_max_imag, 'Max:', initial=str(self.max_imag),
+                                       color_bg=self.panel_color, color_fg=self.text_color)
+        self.textbox_max_imag.label.set_color(self.accent_color)
+        
+        # === HAUPT-AKTIONS-BUTTONS (Rechts unten) ===
+        ax_compute = plt.axes([0.6, 0.08, 0.18, 0.08])
+        ax_compute.set_facecolor(self.panel_color)
+        btn_compute = Button(ax_compute, '⚡ BERECHNEN', color='#00aa00', hovercolor='#00dd00')
+        btn_compute.label.set_color(self.text_color)
+        btn_compute.label.set_fontsize(11)
+        btn_compute.label.set_weight('bold')
         btn_compute.on_clicked(self.on_compute_clicked)
         
-        # Button zum Speichern
-        ax_save = plt.axes([0.6, 0.03, 0.15, 0.06])
-        btn_save = Button(ax_save, 'Als PNG\nSpeichern')
+        ax_save = plt.axes([0.8, 0.08, 0.15, 0.08])
+        ax_save.set_facecolor(self.panel_color)
+        btn_save = Button(ax_save, '💾 PNG', color='#9900cc', hovercolor='#cc00ff')
+        btn_save.label.set_color(self.text_color)
+        btn_save.label.set_fontsize(11)
+        btn_save.label.set_weight('bold')
         btn_save.on_clicked(self.save_image)
+        
+        # === INFORMATIONS-PANEL (Unten) ===
+        self.fig.text(0.05, 0.02, 'Status: Bereit', color=self.accent_color, 
+                     fontsize=10, weight='bold', family='monospace')
+        self.status_text = self.fig.text(0.3, 0.02, '', color=self.text_color, 
+                                        fontsize=9, family='monospace')
     
     def zoom_to_level(self, level_name):
         """Zoomt zu einem vordefinierten Level."""
@@ -121,11 +174,13 @@ class MandelbrotVisualizer:
             self.max_imag = float(self.textbox_max_imag.text)
             self.compute_and_display()
         except ValueError:
-            print("Fehler: Bitte geben Sie gültige Zahlen ein!")
+            print("❌ Fehler: Bitte geben Sie gültige Zahlen ein!")
     
     def compute_and_display(self):
         """Berechnet die Mandelbrot-Menge und zeigt sie an."""
-        print(f"Berechne Mandelbrot-Menge... ({self.width}x{self.height})")
+        print(f"\n⏳ Berechne Mandelbrot-Menge ({self.width}x{self.height})...")
+        self.status_text.set_text(f'⏳ Berechne... ({self.width}x{self.height})')
+        self.fig.canvas.draw_idle()
         
         # Berechne die Mandelbrot-Menge
         self.mandelbrot_set = MandelbrotCalculator.compute(
@@ -144,6 +199,7 @@ class MandelbrotVisualizer:
         self.db.insert_pixel_data(self.current_set_id, self.mandelbrot_set)
         
         print(f"✓ Gespeichert mit ID: {self.current_set_id}")
+        self.status_text.set_text(f'✓ Set #{self.current_set_id} berechnet und gespeichert')
         
         # Visualisiere
         self.display()
@@ -153,40 +209,60 @@ class MandelbrotVisualizer:
         if self.mandelbrot_set is None:
             return
         
-        self.ax.clear()
+        self.ax_mandelbrot.clear()
         
         # Verwende logarithmische Skalierung für bessere Farbverteilung
         norm = colors.PowerNorm(gamma=0.3, vmin=0, vmax=self.max_iterations)
         
         # Zeige das Bild mit Rainbow-Colormap an
-        self.im = self.ax.imshow(
+        self.im = self.ax_mandelbrot.imshow(
             self.mandelbrot_set,
             extent=[self.min_real, self.max_real, self.min_imag, self.max_imag],
-            cmap=self.rainbow_cmap,  # Verwendet jetzt die Rainbow-Colormap
+            cmap=self.rainbow_cmap,
             origin='lower',
             norm=norm,
             interpolation='bilinear'
         )
         
-        self.ax.set_xlabel('Reelle Achse')
-        self.ax.set_ylabel('Imaginäre Achse')
-        self.ax.set_title(f'Mandelbrot-Menge (ID: {self.current_set_id})')
+        # Styling
+        self.ax_mandelbrot.set_xlabel('Reelle Achse', color=self.accent_color, fontsize=11, weight='bold')
+        self.ax_mandelbrot.set_ylabel('Imaginäre Achse', color=self.accent_color, fontsize=11, weight='bold')
+        self.ax_mandelbrot.set_title(f'Mandelbrot-Menge | Set #{self.current_set_id}', 
+                                    color=self.text_color, fontsize=13, weight='bold', pad=20)
         
-        plt.colorbar(self.im, ax=self.ax, label='Iterationen bis Divergenz')
+        # Achsen-Styling
+        self.ax_mandelbrot.spines['bottom'].set_color(self.accent_color)
+        self.ax_mandelbrot.spines['left'].set_color(self.accent_color)
+        self.ax_mandelbrot.spines['top'].set_visible(False)
+        self.ax_mandelbrot.spines['right'].set_visible(False)
+        self.ax_mandelbrot.tick_params(colors=self.text_color, labelsize=9)
+        self.ax_mandelbrot.set_facecolor(self.panel_color)
+        
+        # Colorbar
+        cbar = plt.colorbar(self.im, ax=self.ax_mandelbrot, label='Iterationen', pad=0.02)
+        cbar.set_label('Iterationen bis Divergenz', color=self.accent_color, fontsize=10, weight='bold')
+        cbar.ax.tick_params(colors=self.text_color)
+        
         plt.draw()
     
     def save_image(self, event):
         """Speichert das aktuelle Bild als PNG."""
         if self.mandelbrot_set is None:
-            print("Keine Mandelbrot-Menge zu speichern!")
+            print("❌ Keine Mandelbrot-Menge zu speichern!")
+            self.status_text.set_text('❌ Bitte zuerst berechnen!')
             return
         
         filename = f"mandelbrot_{self.current_set_id}.png"
-        self.fig.savefig(filename, dpi=150, bbox_inches='tight')
+        self.fig.savefig(filename, dpi=150, bbox_inches='tight', facecolor=self.bg_color)
         print(f"✓ Bild gespeichert als: {filename}")
+        self.status_text.set_text(f'✓ PNG gespeichert: {filename}')
     
     def show(self):
         """Zeigt die interaktive Visualisierung an."""
+        print("\n" + "="*60)
+        print("🌀 MANDELBROT-MENGE VISUALIZER (Moderne UI)")
+        print("="*60)
+        
         # Berechne initial die Vollständige Menge
         self.compute_and_display()
         plt.show()
@@ -198,17 +274,7 @@ class MandelbrotVisualizer:
 
 def main():
     """Hauptfunktion."""
-    print("=" * 60)
-    print("MANDELBROT-MENGE VISUALIZER")
-    print("=" * 60)
-    print()
-    print("Interaktive Visualisierung der Mandelbrot-Menge")
-    print("- Wählen Sie vordefinierte Zoom-Level oder geben Sie eigene Bereiche ein")
-    print("- Klicken Sie auf 'Berechnen und Speichern' um die Menge zu berechnen")
-    print("- Alle Berechnungen werden in der SQLite-Datenbank gespeichert")
-    print()
-    
-    visualizer = MandelbrotVisualizer(width=1000, height=750, max_iterations=256)
+    visualizer = MandelbrotVisualizer(width=1200, height=800, max_iterations=256)
     visualizer.show()
 
 

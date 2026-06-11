@@ -4,10 +4,30 @@ Modul zur Visualisierung der Mandelbrot-Menge.
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 from matplotlib.widgets import Button, TextBox
 from mandelbrot_calculator import MandelbrotCalculator
 from database import MandelbrotDatabase
+
+
+def create_rainbow_colormap():
+    """
+    Erstellt eine Custom Colormap mit 7 Farben (Regenbogen).
+    Wechsel von: Dunkelblau → Cyan → Grün → Gelb → Orange → Rot → Violett
+    """
+    colors_list = [
+        '#000033',  # Dunkelblau (0)
+        '#0066FF',  # Blau
+        '#00FFFF',  # Cyan
+        '#00FF00',  # Grün
+        '#FFFF00',  # Gelb
+        '#FF6600',  # Orange
+        '#FF0000',  # Rot
+        '#8800FF',  # Violett (256)
+    ]
+    
+    return LinearSegmentedColormap.from_list('mandelbrot_rainbow', colors_list)
 
 
 class MandelbrotVisualizer:
@@ -32,6 +52,9 @@ class MandelbrotVisualizer:
         # Erstelle die Figur und Achsen
         self.fig, self.ax = plt.subplots(figsize=(12, 9))
         self.im = None
+        
+        # Erstelle die Rainbow-Colormap
+        self.rainbow_cmap = create_rainbow_colormap()
         
         self.setup_ui()
     
@@ -135,11 +158,11 @@ class MandelbrotVisualizer:
         # Verwende logarithmische Skalierung für bessere Farbverteilung
         norm = colors.PowerNorm(gamma=0.3, vmin=0, vmax=self.max_iterations)
         
-        # Zeige das Bild an
+        # Zeige das Bild mit Rainbow-Colormap an
         self.im = self.ax.imshow(
             self.mandelbrot_set,
             extent=[self.min_real, self.max_real, self.min_imag, self.max_imag],
-            cmap='hot',
+            cmap=self.rainbow_cmap,  # Verwendet jetzt die Rainbow-Colormap
             origin='lower',
             norm=norm,
             interpolation='bilinear'
